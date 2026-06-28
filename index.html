@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamFlow - ระบบจัดการงานและภาพรวมทีม</title>
+    <!-- Google Fonts: Prompt for Thai & Inter for English/Numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons for premium visual look -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Top Navigation Bar -->
+    <header class="app-header">
+        <div class="header-container">
+            <div class="app-logo">
+                <div class="logo-icon">
+                    <i data-lucide="check-square"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>TeamFlow</h1>
+                    <span>ระบบจัดการงานระดับทีม</span>
+                </div>
+            </div>
+            
+            <!-- Role Switcher -->
+            <div class="role-selector-container">
+                <label for="role-select" class="selector-label">
+                    <i data-lucide="users"></i>
+                    <span>มุมมองผู้ใช้งาน:</span>
+                </label>
+                <div class="custom-select-wrapper">
+                    <select id="role-select" class="role-select">
+                        <option value="supervisor">หัวหน้างาน (Supervisor)</option>
+                        <optgroup label="สมาชิกทีมงาน (Team Members)" id="members-optgroup">
+                            <!-- Team members will be injected dynamically -->
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="app-container">
+        
+        <!-- ============================================== -->
+        <!-- 1. SUPERVISOR DASHBOARD VIEW -->
+        <!-- ============================================== -->
+        <section id="supervisor-view" class="view-section active">
+            <!-- Header section of Dashboard -->
+            <div class="view-header">
+                <div class="view-title-area">
+                    <h2>ภาพรวมทีมงานทั้งหมด (Team Overview)</h2>
+                    <p class="subtitle">แสดงสถานะโครงการ งบประมาณ และการแบ่งงานของพนักงานทุกคน</p>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="openEmployeeModal()">
+                        <i data-lucide="users"></i>
+                        <span>จัดการพนักงาน</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="openAddTaskModal()">
+                        <i data-lucide="plus-circle"></i>
+                        <span>สร้างงานใหม่</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tab Switcher Bar for Supervisor -->
+            <div class="view-tabs-bar">
+                <button class="tab-btn active" id="tab-btn-sup-board" onclick="switchViewTab('board')">
+                    <i data-lucide="layout-grid"></i>
+                    <span>แดชบอร์ดภาพรวม (Dashboard)</span>
+                </button>
+                <button class="tab-btn" id="tab-btn-sup-calendar" onclick="switchViewTab('calendar')">
+                    <i data-lucide="calendar"></i>
+                    <span>ปฏิทินดีดไลน์รวมทีม (Team Calendar)</span>
+                </button>
+            </div>
+
+            <!-- 1.1 Dashboard View Content -->
+            <div id="sup-board-content" class="tab-content-wrapper">
+                <!-- Stats Metrics Grid -->
+                <div class="metrics-grid">
+                    <div class="metric-card bg-emerald-light">
+                        <div class="metric-icon color-emerald"><i data-lucide="layers"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">งานทั้งหมดในระบบ</span>
+                            <h3 id="stat-total-tasks">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card bg-blue-light">
+                        <div class="metric-icon color-blue"><i data-lucide="activity"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">กำลังดำเนินการ (In Progress)</span>
+                            <h3 id="stat-progress-tasks">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card bg-orange-light">
+                        <div class="metric-icon color-orange"><i data-lucide="eye"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">รอตรวจงาน (Review)</span>
+                            <h3 id="stat-review-tasks">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card bg-green-light">
+                        <div class="metric-icon color-green"><i data-lucide="check-circle2"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">เสร็จสิ้น (Done)</span>
+                            <h3 id="stat-done-tasks">0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card bg-teal-light">
+                        <div class="metric-icon color-teal"><i data-lucide="dollar-sign"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">งบประมาณรวมทั้งหมด</span>
+                            <h3 id="stat-total-budget">฿0</h3>
+                        </div>
+                    </div>
+                    <div class="metric-card bg-red-light">
+                        <div class="metric-icon color-red"><i data-lucide="alert-triangle"></i></div>
+                        <div class="metric-info">
+                            <span class="metric-label">เกินกำหนดส่ง (Overdue)</span>
+                            <h3 id="stat-overdue-tasks">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Columns (Split Workload & All Tasks) -->
+                <div class="dashboard-layout">
+                    <!-- Left: Workload Analysis -->
+                    <div class="dashboard-card workload-section">
+                        <div class="card-header">
+                            <h3 class="card-title"><i data-lucide="bar-chart-3"></i> การกระจายงานรายบุคคล (Workload)</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="workload-list" id="workload-container">
+                                <!-- Dynamically generated member tasks count -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: All Tasks Table -->
+                    <div class="dashboard-card tasks-table-section">
+                        <div class="card-header flex-header">
+                            <h3 class="card-title"><i data-lucide="list-todo"></i> รายการงานทั้งหมดในระบบ</h3>
+                            <!-- Table Filter Controls -->
+                            <div class="table-filters">
+                                <div class="search-input-wrapper">
+                                    <i data-lucide="search" class="search-icon"></i>
+                                    <input type="text" id="task-search" placeholder="ค้นหาชื่องาน/รายละเอียด..." class="filter-input">
+                                </div>
+                                <select id="filter-assignee" class="filter-input">
+                                    <option value="all">ทุกคน (All Members)</option>
+                                    <!-- Team members list options injected dynamically -->
+                                </select>
+                                <select id="filter-status" class="filter-input">
+                                    <option value="all">ทุกสถานะ (All Statuses)</option>
+                                    <option value="Todo">Todo (สิ่งที่ต้องทำ)</option>
+                                    <option value="In Progress">In Progress (กำลังทำ)</option>
+                                    <option value="Review">Review (รอตรวจงาน)</option>
+                                    <option value="Done">Done (เสร็จสิ้น)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="card-body no-padding table-responsive">
+                            <table class="tasks-table">
+                                <thead>
+                                    <tr>
+                                        <th>ชื่องาน</th>
+                                        <th>ผู้รับผิดชอบ</th>
+                                        <th>กำหนดส่ง</th>
+                                        <th>งบประมาณ</th>
+                                        <th>สถานะ</th>
+                                        <th class="text-center">จัดการ</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tasks-table-body">
+                                    <!-- Tasks rows injected dynamically -->
+                                </tbody>
+                            </table>
+                            <div id="no-tasks-message" class="empty-state hidden">
+                                <i data-lucide="folder-open"></i>
+                                <p>ไม่พบรายการงานตามเงื่อนไขที่เลือก</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1.2 Team Calendar View Content -->
+            <div id="sup-calendar-content" class="tab-content-wrapper hidden">
+                <div class="calendar-card">
+                    <div class="calendar-header-wrapper">
+                        <div class="calendar-title-controls">
+                            <button class="btn-nav" onclick="changeCalendarMonth(-1)"><i data-lucide="chevron-left"></i></button>
+                            <h3 id="sup-calendar-month-year" class="month-year-label">มิถุนายน 2026</h3>
+                            <button class="btn-nav" onclick="changeCalendarMonth(1)"><i data-lucide="chevron-right"></i></button>
+                            <button class="btn btn-secondary btn-sm" onclick="jumpToCurrentMonth()">วันนี้ (Today)</button>
+                        </div>
+                        <div class="calendar-filter-controls">
+                            <div class="legend-indicators hide-mobile">
+                                <span class="legend-dot bg-todo"></span><span>Todo</span>
+                                <span class="legend-dot bg-progress"></span><span>Progress</span>
+                                <span class="legend-dot bg-review"></span><span>Review</span>
+                                <span class="legend-dot bg-done"></span><span>Done</span>
+                            </div>
+                            <div class="assignee-select-flex">
+                                <label for="calendar-assignee-filter" class="filter-label"><i data-lucide="filter" style="width:14px;height:14px;"></i> กรองพนักงาน:</label>
+                                <select id="calendar-assignee-filter" class="filter-input filter-sm" onchange="renderCalendar()">
+                                    <option value="all">ทุกคนในทีม (All Members)</option>
+                                    <!-- Injected dynamically -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Desktop Monthly Grid -->
+                    <div class="calendar-grid-view">
+                        <div class="calendar-weekdays">
+                            <div>อา (Sun)</div>
+                            <div>จ (Mon)</div>
+                            <div>อ (Tue)</div>
+                            <div>พ (Wed)</div>
+                            <div>พฤ (Thu)</div>
+                            <div>ศ (Fri)</div>
+                            <div>ส (Sat)</div>
+                        </div>
+                        <div class="calendar-days-grid" id="sup-calendar-days">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Mobile Milestone Timeline -->
+                    <div class="calendar-timeline-view hidden" id="sup-calendar-mobile-timeline">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ============================================== -->
+        <!-- 2. TEAM MEMBER KANBAN VIEW -->
+        <!-- ============================================== -->
+        <section id="member-view" class="view-section">
+            <!-- Header for Member Board -->
+            <div class="view-header">
+                <div class="view-title-area">
+                    <div class="member-profile-badge">
+                        <div class="avatar" id="member-avatar">M</div>
+                        <div>
+                            <h2 id="member-board-title">บอร์ดงานของสมาชิก</h2>
+                            <p class="subtitle" id="member-board-subtitle">จัดการและบันทึกความคืบหน้างานของคุณด้วยระบบ Kanban Board</p>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="openAddTaskModalForCurrentMember()">
+                    <i data-lucide="plus"></i>
+                    <span>เพิ่มงานใหม่ของฉัน</span>
+                </button>
+            </div>
+
+            <!-- Tab Switcher Bar for Member -->
+            <div class="view-tabs-bar">
+                <button class="tab-btn active" id="tab-btn-mem-board" onclick="switchViewTab('board')">
+                    <i data-lucide="kanban"></i>
+                    <span>บอร์ดงานสะกดรอย (Kanban)</span>
+                </button>
+                <button class="tab-btn" id="tab-btn-mem-calendar" onclick="switchViewTab('calendar')">
+                    <i data-lucide="calendar"></i>
+                    <span>ปฏิทินดีดไลน์ของฉัน (My Calendar)</span>
+                </button>
+            </div>
+
+            <!-- 2.1 Kanban Board View Content -->
+            <div id="mem-board-content" class="tab-content-wrapper">
+                <!-- Kanban Board Grid -->
+                <div class="kanban-board">
+                    <!-- Column 1: Todo -->
+                    <div class="kanban-column" id="col-Todo" data-status="Todo">
+                        <div class="column-header border-todo">
+                            <div class="col-title-flex">
+                                <span class="status-indicator bg-todo"></span>
+                                <h3>Todo (สิ่งที่ต้องทำ)</h3>
+                            </div>
+                            <span class="column-count" id="count-todo">0</span>
+                        </div>
+                        <div class="column-cards" id="cards-todo" ondragover="allowDrop(event)" ondrop="dropTask(event)">
+                            <!-- Task cards will go here -->
+                        </div>
+                    </div>
+
+                    <!-- Column 2: In Progress -->
+                    <div class="kanban-column" id="col-In Progress" data-status="In Progress">
+                        <div class="column-header border-progress">
+                            <div class="col-title-flex">
+                                <span class="status-indicator bg-progress"></span>
+                                <h3>In Progress (กำลังทำ)</h3>
+                            </div>
+                            <span class="column-count" id="count-progress">0</span>
+                        </div>
+                        <div class="column-cards" id="cards-progress" ondragover="allowDrop(event)" ondrop="dropTask(event)">
+                            <!-- Task cards will go here -->
+                        </div>
+                    </div>
+
+                    <!-- Column 3: Review -->
+                    <div class="kanban-column" id="col-Review" data-status="Review">
+                        <div class="column-header border-review">
+                            <div class="col-title-flex">
+                                <span class="status-indicator bg-review"></span>
+                                <h3>Review (รอตรวจงาน)</h3>
+                            </div>
+                            <span class="column-count" id="count-review">0</span>
+                        </div>
+                        <div class="column-cards" id="cards-review" ondragover="allowDrop(event)" ondrop="dropTask(event)">
+                            <!-- Task cards will go here -->
+                        </div>
+                    </div>
+
+                    <!-- Column 4: Done -->
+                    <div class="kanban-column" id="col-Done" data-status="Done">
+                        <div class="column-header border-done">
+                            <div class="col-title-flex">
+                                <span class="status-indicator bg-done"></span>
+                                <h3>Done (เสร็จสิ้น)</h3>
+                            </div>
+                            <span class="column-count" id="count-done">0</span>
+                        </div>
+                        <div class="column-cards" id="cards-done" ondragover="allowDrop(event)" ondrop="dropTask(event)">
+                            <!-- Task cards will go here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2.2 Member Calendar View Content -->
+            <div id="mem-calendar-content" class="tab-content-wrapper hidden">
+                <div class="calendar-card">
+                    <div class="calendar-header-wrapper">
+                        <div class="calendar-title-controls">
+                            <button class="btn-nav" onclick="changeCalendarMonth(-1)"><i data-lucide="chevron-left"></i></button>
+                            <h3 id="mem-calendar-month-year" class="month-year-label">มิถุนายน 2026</h3>
+                            <button class="btn-nav" onclick="changeCalendarMonth(1)"><i data-lucide="chevron-right"></i></button>
+                            <button class="btn btn-secondary btn-sm" onclick="jumpToCurrentMonth()">วันนี้ (Today)</button>
+                        </div>
+                        <div class="calendar-filter-controls">
+                            <div class="legend-indicators">
+                                <span class="legend-dot bg-todo"></span><span>Todo</span>
+                                <span class="legend-dot bg-progress"></span><span>Progress</span>
+                                <span class="legend-dot bg-review"></span><span>Review</span>
+                                <span class="legend-dot bg-done"></span><span>Done</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Desktop Monthly Grid -->
+                    <div class="calendar-grid-view">
+                        <div class="calendar-weekdays">
+                            <div>อา (Sun)</div>
+                            <div>จ (Mon)</div>
+                            <div>อ (Tue)</div>
+                            <div>พ (Wed)</div>
+                            <div>พฤ (Thu)</div>
+                            <div>ศ (Fri)</div>
+                            <div>ส (Sat)</div>
+                        </div>
+                        <div class="calendar-days-grid" id="mem-calendar-days">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Mobile Milestone Timeline -->
+                    <div class="calendar-timeline-view hidden" id="mem-calendar-mobile-timeline">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================== -->
+    <!-- MODALS & POPUPS -->
+    <!-- ============================================== -->
+
+    <!-- Add/Edit Task Modal -->
+    <div id="task-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-title">สร้างงานใหม่</h3>
+                <button class="close-btn" onclick="closeTaskModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <form id="task-form" onsubmit="saveTask(event)">
+                <input type="hidden" id="task-id">
+                
+                <div class="form-grid">
+                    <!-- Task Name -->
+                    <div class="form-group span-full">
+                        <label for="task-name-input" class="required">ชื่องาน (Task Name)</label>
+                        <input type="text" id="task-name-input" required placeholder="ระบุชื่องานที่ต้องการมอบหมาย">
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group span-full">
+                        <label for="task-desc-input">รายละเอียด (Description)</label>
+                        <textarea id="task-desc-input" rows="3" placeholder="ระบุรายละเอียดงาน ขั้นตอน ข้อมูลสำคัญ หรือขั้นตอนการทำงาน"></textarea>
+                    </div>
+
+                    <!-- Assigned To -->
+                    <div class="form-group">
+                        <label for="task-assignee-input" class="required">ผู้รับผิดชอบ (Assigned To)</label>
+                        <select id="task-assignee-input" required>
+                            <!-- List of members will be injected dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Budget -->
+                    <div class="form-group">
+                        <label for="task-budget-input">งบประมาณ (Budget)</label>
+                        <div class="currency-input-wrapper">
+                            <span class="currency-symbol">฿</span>
+                            <input type="number" id="task-budget-input" min="0" placeholder="0" step="any">
+                        </div>
+                    </div>
+
+                    <!-- Created Date -->
+                    <div class="form-group">
+                        <label for="task-created-input" class="required">วันที่เริ่มสร้าง (Created Date)</label>
+                        <input type="date" id="task-created-input" required>
+                    </div>
+
+                    <!-- Deadline -->
+                    <div class="form-group">
+                        <label for="task-deadline-input" class="required">กำหนดส่ง (Deadline)</label>
+                        <input type="date" id="task-deadline-input" required>
+                    </div>
+
+                    <!-- Status -->
+                    <div class="form-group">
+                        <label for="task-status-input" class="required">สถานะ (Status)</label>
+                        <select id="task-status-input" required>
+                            <option value="Todo">Todo (สิ่งที่ต้องทำ)</option>
+                            <option value="In Progress">In Progress (กำลังทำ)</option>
+                            <option value="Review">Review (รอตรวจงาน)</option>
+                            <option value="Done">Done (เสร็จสิ้น)</option>
+                        </select>
+                    </div>
+
+                    <!-- Corrective Action -->
+                    <div class="form-group span-full">
+                        <label for="task-corrective-input">แนวทางการแก้ไข (Corrective Action)</label>
+                        <textarea id="task-corrective-input" rows="2" placeholder="ระบุกระบวนการแก้ไข หากพบปัญหาหรือจุดบกพร่องในงานนี้"></textarea>
+                    </div>
+
+                    <!-- Remark -->
+                    <div class="form-group span-full">
+                        <label for="task-remark-input">หมายเหตุ (Remark)</label>
+                        <input type="text" id="task-remark-input" placeholder="ข้อความหรือหมายเหตุเพิ่มเติม">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeTaskModal()">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary" id="save-task-btn">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Task Detail View Modal (Read-Only & Fast Action) -->
+    <div id="detail-modal" class="modal-overlay">
+        <div class="modal-card detail-card">
+            <div class="modal-header">
+                <div class="badge-status-container">
+                    <span id="detail-status-badge" class="badge">Todo</span>
+                    <span id="detail-overdue-badge" class="badge bg-red hidden">Overdue (เลยกำหนดส่ง)</span>
+                </div>
+                <button class="close-btn" onclick="closeDetailModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="detail-body">
+                <h2 id="detail-title" class="detail-task-title">ชื่องานตัวอย่าง</h2>
+                <div class="detail-meta-info">
+                    <div class="meta-item">
+                        <i data-lucide="user"></i>
+                        <div>
+                            <span class="meta-label">ผู้รับผิดชอบ</span>
+                            <span class="meta-value" id="detail-assignee">สมัค</span>
+                        </div>
+                    </div>
+                    <div class="meta-item">
+                        <i data-lucide="dollar-sign"></i>
+                        <div>
+                            <span class="meta-label">งบประมาณ</span>
+                            <span class="meta-value" id="detail-budget">฿0</span>
+                        </div>
+                    </div>
+                    <div class="meta-item">
+                        <i data-lucide="calendar"></i>
+                        <div>
+                            <span class="meta-label">วันที่เริ่มสร้าง</span>
+                            <span class="meta-value" id="detail-created">01/06/2026</span>
+                        </div>
+                    </div>
+                    <div class="meta-item">
+                        <i data-lucide="clock"></i>
+                        <div>
+                            <span class="meta-label">กำหนดส่ง</span>
+                            <span class="meta-value text-semibold" id="detail-deadline">15/06/2026</span>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="detail-divider">
+
+                <div class="detail-section">
+                    <h4><i data-lucide="align-left"></i> รายละเอียดงาน</h4>
+                    <p id="detail-desc" class="detail-text-content">ไม่มีรายละเอียดเพิ่มเติม</p>
+                </div>
+
+                <div id="detail-corrective-container" class="detail-section">
+                    <h4><i data-lucide="wrench"></i> แนวทางการแก้ไข (Corrective Action)</h4>
+                    <p id="detail-corrective" class="detail-text-content corrective-highlight">ไม่มีข้อมูลแนวทางการแก้ไข</p>
+                </div>
+
+                <div id="detail-remark-container" class="detail-section">
+                    <h4><i data-lucide="message-square"></i> หมายเหตุ (Remark)</h4>
+                    <p id="detail-remark" class="detail-text-content">ไม่มีหมายเหตุเพิ่มเติม</p>
+                </div>
+            </div>
+
+            <div class="modal-footer flex-space-between">
+                <div>
+                    <!-- Member fast transition buttons -->
+                    <div class="fast-action-label">เปลี่ยนสถานะงานอย่างรวดเร็ว:</div>
+                    <div class="fast-actions-btn-group" id="detail-fast-actions">
+                        <!-- Buttons will be injected dynamically -->
+                    </div>
+                </div>
+                <div>
+                    <button class="btn btn-secondary" onclick="closeDetailModal()">ปิดหน้าจอ</button>
+                    <button class="btn btn-primary" id="detail-edit-btn" onclick="editTaskFromDetail()">
+                        <i data-lucide="edit"></i> แก้ไขงาน
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Employee Management Modal -->
+    <div id="employee-modal" class="modal-overlay">
+        <div class="modal-card employee-modal-card">
+            <div class="modal-header">
+                <h3>จัดการรายชื่อและรหัสพนักงาน (Manage Employees)</h3>
+                <button class="close-btn" onclick="closeEmployeeModal()">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <!-- Form to Add Employee -->
+            <form id="employee-form" onsubmit="saveEmployee(event)" style="padding: 1.25rem 1.5rem 0.5rem 1.5rem;">
+                <div class="emp-form-inline">
+                    <div class="form-group">
+                        <label for="emp-code-input" class="required">รหัสพนักงาน (Code Employee)</label>
+                        <input type="text" id="emp-code-input" required placeholder="เช่น EMP015">
+                    </div>
+                    <div class="form-group">
+                        <label for="emp-name-input" class="required">ชื่อพนักงาน (Name)</label>
+                        <input type="text" id="emp-name-input" required placeholder="ระบุชื่อพนักงาน">
+                    </div>
+                    <div class="form-group emp-btn-group">
+                        <label>&nbsp;</label>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <i data-lucide="user-plus"></i>
+                            <span>เพิ่ม/อัปเดต</span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            <hr style="margin: 0.5rem 1.5rem;">
+            
+            <!-- Employee List Table -->
+            <div style="padding: 0.5rem 1.5rem 1.5rem 1.5rem;">
+                <h4 style="font-size: 0.9rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-main);">
+                    <i data-lucide="list" style="width:16px;height:16px;vertical-align:middle;display:inline-block;margin-right:4px;"></i> รายชื่อพนักงานปัจจุบัน
+                </h4>
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                    <table class="tasks-table emp-table">
+                        <thead>
+                            <tr>
+                                <th>รหัสพนักงาน</th>
+                                <th>ชื่อพนักงาน</th>
+                                <th class="text-center" style="width: 80px;">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employee-table-body">
+                            <!-- Dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.75rem; line-height: 1.4;">
+                    * <u>หมายเหตุ</u>: การลบรายชื่อพนักงานจะไม่ส่งผลต่อประวัติตัวงานที่บันทึกไว้ในอดีต แต่ชื่อจะถูกคัดออกจากตัวเลือกมอบหมายงานใหม่
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script loading -->
+    <script src="app.js"></script>
+</body>
+</html>

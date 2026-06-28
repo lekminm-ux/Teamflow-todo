@@ -1,0 +1,6 @@
+# Wrangler Configuration for Cloudflare Pages & D1 Database
+
+[[d1_databases]]
+binding = "DB"                               # ตัวแปรอ้างอิงในโค้ด (env.DB)
+database_name = "teamflow-db"                # ชื่อฐานข้อมูลที่สร้างบน Cloudflare D1
+# database_id = "xxxx-xxxx-xxxx-xxxx"        # ID ฐานข้อมูล (จะอัปเดตอัตโนมัติเมื่อผูกบน Cloudflare Pages)

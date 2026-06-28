@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คู่มือการติดตั้งระบบ Full-stack Webapp บน Cloudflare + D1</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2e7d32;
+            --primary-light: #e8f5e9;
+            --primary-hover: #1b5e20;
+            --accent: #10b981;
+            --bg-app: #f4f7f5;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 12px rgba(46, 125, 50, 0.05);
+            --radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            font-family: 'Prompt', 'Inter', sans-serif;
+            line-height: 1.6;
+            padding: 2rem 1rem;
+        }
+
+        .guide-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: var(--bg-card);
+            padding: 2.5rem;
+            border-radius: var(--radius);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 1.5rem;
+        }
+
+        .logo-icon {
+            display: inline-flex;
+            background-color: var(--primary-light);
+            color: var(--primary);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.85rem;
+            color: var(--primary-hover);
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        /* Progress Tracker */
+        .progress-box {
+            background-color: #f8fafc;
+            border: 1px dashed var(--accent);
+            padding: 1.25rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+
+        .progress-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar-bg {
+            height: 8px;
+            background-color: #e2e8f0;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Steps */
+        .step-card {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+
+        .step-card:hover {
+            border-color: var(--accent);
+            box-shadow: var(--shadow);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .step-number {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        .step-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .step-card.completed {
+            border-color: var(--accent);
+            background-color: #f0fdf4;
+        }
+
+        .step-card.completed .step-number {
+            background-color: var(--accent);
+            color: white;
+        }
+
+        .step-checkbox {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--accent);
+        }
+
+        /* Lists & details */
+        ol, ul {
+            padding-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        .code-container {
+            position: relative;
+            background-color: #1e293b;
+            color: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid #334155;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background-color: rgba(255, 255, 255, 0.15);
+            color: #f8fafc;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-family: 'Prompt', sans-serif;
+        }
+
+        .copy-btn:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .alert-box {
+            background-color: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            font-size: 0.875rem;
+        }
+
+        .alert-title {
+            font-weight: 600;
+            color: #b45309;
+            margin-bottom: 0.25rem;
+        }
+
+        .highlight {
+            font-weight: 600;
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+<div class="guide-container">
+    <header>
+        <div class="logo-icon">🚀</div>
+        <h1>คู่มือติดตั้งแอปพลิเคชันขึ้น Cloudflare Pages + D1 SQL Database</h1>
+        <p class="subtitle">ระบบดึงข้อมูลและอัปโหลดอัตโนมัติผ่าน GitHub</p>
+    </header>
+
+    <!-- Progress Tracker -->
+    <div class="progress-box">
+        <div class="progress-title">
+            <span>ความคืบหน้าการติดตั้ง</span>
+            <span id="percent-label">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-bar"></div>
+        </div>
+    </div>
+
+    <!-- Step 1 -->
+    <div class="step-card" id="card-1">
+        <input type="checkbox" class="step-checkbox" onchange="toggleStep(1)">
+        <div class="step-header">
+            <div class="step-number">1</div>
+            <div class="step-title">อัปโหลดไฟล์เว็บขึ้น GitHub</div>
+        </div>
+        <div class="step-content">
+            <p>นำไฟล์โค้ดในคอมพิวเตอร์ของคุณขึ้นไปสร้าง Repository ในบัญชี GitHub เพื่อนำไปเป็นตัวต้นฉบับดึงข้อมูล:</p>
+            <ol>
+                <li>เข้าเว็บ <strong>GitHub.com</strong> และกดปุ่ม <span class="highlight">New Repository</span> เพื่อสร้างใหม่</li>
+                <li>ตั้งชื่อโครงการเป็นภาษาอังกฤษ เช่น <code>teamflow-todo</code> จากนั้นกดสร้าง</li>
+                <li>ในหน้าถัดไป ให้คลิกคำว่า <strong>"uploading an existing file"</strong></li>
+                <li>ลากไฟล์ในคอมพิวเตอร์ทั้งหมด ได้แก่ <code>index.html</code>, <code>style.css</code>, <code>app.js</code>, <code>schema.sql</code>, <code>wrangler.toml</code> และ <strong>โฟลเดอร์ <code>functions</code></strong> ไปวางในเบราว์เซอร์</li>
+                <li>เมื่อโหลดเสร็จ ให้เลื่อนไปกดปุ่มสีเขียว <strong>"Commit changes"</strong></li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="step-card" id="card-2">
+        <input type="checkbox" class="step-checkbox" onchange="toggleStep(2)">
+        <div class="step-header">
+            <div class="step-number">2</div>
+            <div class="step-title">สร้างฐานข้อมูลคลาวด์ D1 SQL</div>
+        </div>
+        <div class="step-content">
+            <p>สร้างฐานข้อมูล SQL บน Cloudflare เพื่อใช้เก็บบันทึกงบประมาณและข้อมูลชื่องานร่วมกันภายในทีม:</p>
+            <ol>
+                <li>เข้าสู่ระบบที่เว็บ <strong>dash.cloudflare.com</strong></li>
+                <li>เมนูด้านซ้ายมือ คลิกหัวข้อ <strong>"Storage & databases"</strong> แล้วกดเลือกเมนูย่อย <strong>"D1 SQLite Database"</strong></li>
+                <li>คลิกปุ่มสีน้ำเงิน <strong>"Create database"</strong></li>
+                <li>พิมพ์ชื่องานในช่อง Name ว่า: <code class="highlight">teamflow-db</code> จากนั้นกดปุ่ม <strong>"Create"</strong></li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="step-card" id="card-3">
+        <input type="checkbox" class="step-checkbox" onchange="toggleStep(3)">
+        <div class="step-header">
+            <div class="step-number">3</div>
+            <div class="step-title">ตั้งค่าโครงสร้างฐานข้อมูล (Console SQL)</div>
+        </div>
+        <div class="step-content">
+            <p>คัดลอกคำสั่งโครงสร้างตารางไปรันในคอนโซลของฐานข้อมูล:</p>
+            <ol>
+                <li>ในหน้าแดชบอร์ด D1 ที่เพิ่งสร้าง ให้เลือกแท็บที่สองหัวข้อ <strong>"Console"</strong></li>
+                <li>คัดลอกโค้ด SQL ด้านล่างนี้ทั้งหมดไปวางลงในช่องป้อนคำสั่ง:</li>
+            </ol>
+            
+            <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">คัดลอกโค้ด</button>
+                <pre id="sql-code">CREATE TABLE IF NOT EXISTS tasks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    createdDate TEXT NOT NULL,
+    deadline TEXT NOT NULL,
+    assignee TEXT NOT NULL,
+    budget REAL DEFAULT 0,
+    status TEXT NOT NULL,
+    correctiveAction TEXT DEFAULT '',
+    remark TEXT DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_tasks_assignee ON tasks(assignee);
+CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);</pre>
+            </div>
+            <ol start="3">
+                <li>คลิกปุ่มสีน้ำเงิน <strong>"Execute"</strong> ด้านขวา จะต้องมีข้อความสีเขียวตอบรับความสำเร็จขึ้นมา</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Step 4 -->
+    <div class="step-card" id="card-4">
+        <input type="checkbox" class="step-checkbox" onchange="toggleStep(4)">
+        <div class="step-header">
+            <div class="step-number">4</div>
+            <div class="step-title">ติดตั้งและสร้าง Cloudflare Pages</div>
+        </div>
+        <div class="step-content">
+            <p>ดึงไฟล์หน้าเว็บจาก GitHub มาจัดวางในโหมด Pages ของ Cloudflare:</p>
+            <ol>
+                <li>เมนูด้านซ้ายมือสุดของ Cloudflare คลิกที่เมนู <strong>"Compute"</strong> จากนั้นเลือกย่อย <strong>"Workers & Pages"</strong></li>
+                <li>คลิกปุ่มสีน้ำเงิน <strong>"Create application"</strong></li>
+                <li><strong>จุดสำคัญ:</strong> เลื่อนลงด้านล่างสุดของตัวเลือกแล้วคลิกที่คำว่า <strong class="highlight" style="text-decoration: underline;">Get started</strong> (ในหัวข้อ Looking to deploy Pages?)</li>
+                <li>คลิกเลือกหัวข้อแรก <strong>"Import an existing Git repository"</strong> (ปุ่ม Get started)</li>
+                <li>คลิกปุ่ม <strong>"Connect GitHub"</strong> และกดปุ่มสีเขียวอนุญาตสิทธิ์เข้าถึงบัญชี</li>
+                <li>เลือกชื่อโปรเจกต์ <code>teamflow-todo</code> จากนั้นกดปุ่ม <strong>"Begin setup"</strong></li>
+                <li>ช่อง Project name ให้เขียนตัวพิมพ์เล็กทั้งหมด เช่น <code>teamflow-todo</code> และให้กดปุ่มสีน้ำเงิน <strong>"Save and Deploy"</strong> ได้ทันที</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step-card" id="card-5">
+        <input type="checkbox" class="step-checkbox" onchange="toggleStep(5)">
+        <div class="step-header">
+            <div class="step-number">5</div>
+            <div class="step-title">เชื่อมฐานข้อมูล D1 เข้ากับแอป และ Deploy ซ้ำ</div>
+        </div>
+        <div class="step-content">
+            <p>ผูกข้อมูลสองส่วนเข้าหากันเพื่อให้ระบบคุยกับฐานข้อมูลได้:</p>
+            <ol>
+                <li>เมื่อหน้าจอบอกความสำเร็จในการ Deploy ครั้งแรก ให้กดปุ่ม <strong>"Continue to project"</strong></li>
+                <li>คลิกแท็บเมนูหัวข้อ <strong>"Settings"</strong> ด้านบน จากนั้นเลือกเมนูย่อย <strong>"Bindings"</strong> ทางแถบซ้ายมือ</li>
+                <li>ในหัวข้อ Bindings ตรงกลางจอ ให้คลิกปุ่ม <strong>"+ Add"</strong> แล้วเลือกคลิกคำว่า <strong>"D1 database"</strong></li>
+                <li>กรอกฟอร์มการเชื่อมต่อดังนี้:
+                    <ul>
+                        <li>ช่อง Variable name: พิมพ์ตัวใหญ่คำว่า <strong>`DB`</strong> เท่านั้น</li>
+                        <li>ช่อง D1 database: เลือกชื่อฐานข้อมูลคลาวด์ <strong>`teamflow-db`</strong></li>
+                    </ul>
+                </li>
+                <li>คลิกปุ่ม <strong>"Save"</strong> เพื่อบันทึกข้อมูล</li>
+                <li><strong>ขั้นตอนสุดท้าย:</strong> ไปแท็บเมนู <strong>"Deployments"</strong> ด้านบนขวาสุด คลิกที่ปุ่ม <strong>"Manage deployment"</strong> และกดคำสั่ง <strong>"Retry deployment"</strong> เพื่อสั่งให้เว็บเชื่อมต่อและทำงานร่วมกับฐานข้อมูลคลาวด์สมบูรณ์ 100%!</li>
+            </ol>
+
+            <div class="alert-box">
+                <div class="alert-title">💡 เกร็ดความรู้มือใหม่:</div>
+                ในอนาคต หากคุณต้องการเขียนโค้ดเพิ่มหรือเปลี่ยนคำอธิบายหน้าเว็บ ให้แก้ไขในโฟลเดอร์โครงการของคุณ แล้วโยนลากไฟล์ที่แก้ไปทับใน GitHub ตามขั้นตอนที่ 1 ได้ทันทีครับ ระบบ Cloudflare จะบิลด์และอัปเดตเว็บไซต์ออนไลน์ให้เองแบบอัตโนมัติภายใน 15 วินาที!
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleStep(stepNum) {
+        const card = document.getElementById(`card-${stepNum}`);
+        card.classList.toggle('completed');
+        updateProgress();
+    }
+
+    function updateProgress() {
+        const checkboxes = document.querySelectorAll('.step-checkbox');
+        let checkedCount = 0;
+        checkboxes.forEach(cb => {
+            if (cb.checked) checkedCount++;
+        });
+
+        const percent = Math.round((checkedCount / checkboxes.length) * 100);
+        document.getElementById('progress-bar').style.width = `${percent}%`;
+        document.getElementById('percent-label').textContent = `${percent}%`;
+    }
+
+    function copyCode(btn) {
+        const codeText = document.getElementById('sql-code').innerText;
+        navigator.clipboard.writeText(codeText).then(() => {
+            const originalText = btn.innerText;
+            btn.innerText = 'คัดลอกแล้ว! ✅';
+            btn.style.backgroundColor = '#10b981';
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.style.backgroundColor = 'rgba(255, 255, 255, 0.15)';
+            }, 2000);
+        }).catch(err => {
+            alert('ไม่สามารถคัดลอกได้อัตโนมัติ กรุณาลากคลุมและคัดลอกด้วยตนเองครับ');
+        });
+    }
+</script>
+</body>
+</html>
