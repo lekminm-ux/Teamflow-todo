@@ -2,7 +2,11 @@
    TEAMFLOW JAVASCRIPT - State, API & UI Controller (Cloudflare D1 Enabled)
    ========================================================================== */
 
-// 1. Team Members Definition
+// ====== Master List พนักงาน: อ่านจาก Google Sheet ผ่าน Apps Script Web App ======
+// วาง Web App URL (/exec) ที่ deploy จาก Master_Employee_API.gs ตรงนี้
+const MASTER_API_URL = "https://script.google.com/macros/s/AKfycbyMFc1bfw4LFf2eKf9J6Zc4tfWj556nAiwL3Z5Eq7lG8hMYN6exBW--TwJ03RASYriX/exec";
+
+// 1. Team Members Definition (fallback names เท่านั้น)
 const TEAM_MEMBERS = [
     "สมัค", "ต๊ะ", "อ้อม", "ปราง", "จอย", "บุ๋ม", 
     "ตาล", "มิน", "โต้ย", "หมี", "โค้ก", "เบิ้ล", "ลี่", "แพร"
@@ -104,14 +108,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Load tasks from Cloudflare API (with LocalStorage / Mock Data fallbacks)
 async function initAppState() {
-    // 1. Load employees list first
+    // 1. Load employees list from Google Sheet master (via Apps Script API)
+    //    เดิมดึงจาก D1 (/api/employees) -> เปลี่ยนเป็นดึง Master จาก Google Sheet
     try {
-        const response = await fetch("/api/employees");
-        if (response.ok) {
-            employees = await response.json();
+        if (MASTER_API_URL && MASTER_API_URL.indexOf("PASTE_") !== 0) {
+            const response = await fetch(`${MASTER_API_URL}?action=getTeamflowMaster`);
+            if (response.ok) {
+                const body = await response.json();
+                const rows = Array.isArray(body) ? body : (body && body.data);
+                if (Array.isArray(rows)) {
+                    employees = rows
+                        .map(r => ({ code: (r.code || "").trim(), name: (r.name || "").trim(), position: r.position || "" }))
+                        .filter(e => e.name);
+                }
+            }
         }
     } catch (err) {
-        console.warn("⚠️ ไม่สามารถดึงข้อมูลพนักงานจาก D1 ได้:", err);
+        console.warn("⚠️ ไม่สามารถดึง Master พนักงานจาก Google Sheet ได้:", err);
     }
 
     // Fallback: Seed initial employees if empty (e.g. offline/local fallback)
