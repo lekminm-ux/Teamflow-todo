@@ -26,14 +26,14 @@
                 </div>
             </div>
             
-            <!-- Role Switcher -->
+            <!-- Role / Session display (authority is server-side; read-only) -->
             <div class="role-selector-container">
                 <label for="role-select" class="selector-label">
                     <i data-lucide="users"></i>
                     <span>มุมมองผู้ใช้งาน:</span>
                 </label>
                 <div class="custom-select-wrapper">
-                    <select id="role-select" class="role-select">
+                    <select id="role-select" class="role-select" disabled>
                         <option value="supervisor">หัวหน้างาน (Supervisor)</option>
                         <optgroup label="สมาชิกทีมงาน (Team Members)" id="members-optgroup">
                             <!-- Team members will be injected dynamically -->

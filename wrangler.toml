@@ -1,6 +1,14 @@
 # Wrangler Configuration for Cloudflare Pages & D1 Database
 
 [[d1_databases]]
-binding = "DB"                               # ตัวแปรอ้างอิงในโค้ด (env.DB)
-database_name = "teamflow-db"                # ชื่อฐานข้อมูลที่สร้างบน Cloudflare D1
-# database_id = "xxxx-xxxx-xxxx-xxxx"        # ID ฐานข้อมูล (จะอัปเดตอัตโนมัติเมื่อผูกบน Cloudflare Pages)
+binding = "DB"                               # env.DB binding
+database_name = "teamflow-db"
+# database_id = "REPLACE_WITH_DATABASE_ID"   # set at binding time; no real ID committed
+
+# [vars] runtime, NON-SECRET configuration placeholders for Cloudflare Access
+# (Pages Plugin design). Fill at deploy time via the Pages project settings;
+# never commit real values. These gate identity validation and default deny
+# until provided.
+[vars]
+ACCESS_TEAM_DOMAIN = "REPLACE_WITH_ACCESS_TEAM_DOMAIN"
+ACCESS_AUDIENCE = "REPLACE_WITH_ACCESS_AUD"

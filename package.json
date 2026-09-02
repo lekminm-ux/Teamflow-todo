@@ -1,0 +1,11 @@
+{
+  "name": "app07-todolist",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/functions.test.mjs tests/auth-ownership.test.mjs",
+    "test:functions": "node --test tests/functions.test.mjs",
+    "test:auth": "node --test tests/auth-ownership.test.mjs"
+  }
+}

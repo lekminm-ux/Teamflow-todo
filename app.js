@@ -6,6 +6,20 @@
 // วาง Web App URL (/exec) ที่ deploy จาก Master_Employee_API.gs ตรงนี้
 const MASTER_API_URL = "https://script.google.com/macros/s/AKfycbyMFc1bfw4LFf2eKf9J6Zc4tfWj556nAiwL3Z5Eq7lG8hMYN6exBW--TwJ03RASYriX/exec";
 
+const MODAL_OPTGROUPS = false; // legacy flag; assignment dropdowns are populated server-side data only
+
+// DOM-safe rendering boundary (H2): every task/employee-controlled value that
+// is interpolated into an HTML template MUST pass through one of these.
+// CSP is defence-in-depth only; these helpers are the primary boundary.
+const HTML_ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+function escapeHtml(value) {
+    return String(value === undefined || value === null ? "" : value).replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+}
+// For values embedded inside inline JS string literals (e.g. onclick handlers).
+function escapeJsLiteral(value) {
+    return escapeHtml(value).replace(/\\/g, "\\\\").replace(/`/g, "\\`").replace(/\$/g, "\\$");
+}
+
 // 1. Team Members Definition (fallback names เท่านั้น)
 const TEAM_MEMBERS = [
     "สมัค", "ต๊ะ", "อ้อม", "ปราง", "จอย", "บุ๋ม", 
@@ -88,9 +102,9 @@ const INITIAL_TASKS = [
     }
 ];
 
-// 3. Application State
+// 3. Application State (session-driven; role authority is server-side only)
 let tasks = [];
-let currentRole = "supervisor"; // Default view
+let session = { authenticated: false, role: "member", employee_code: null, display_name: null };
 let draggedTaskId = null;
 let currentTab = "board"; // board or calendar
 let calendarYear = new Date().getFullYear();
@@ -106,76 +120,84 @@ document.addEventListener("DOMContentLoaded", () => {
     initAppState(); // Async load from API
 });
 
-// Load tasks from Cloudflare API (with LocalStorage / Mock Data fallbacks)
+// Load session from the server, then tasks from the Cloudflare API.
+// Production localStorage task fallback is intentionally DISABLED: the server
+// is the single source of truth and enforces ownership.
 async function initAppState() {
-    // 1. Load employees list from Google Sheet master (via Apps Script API)
-    //    เดิมดึงจาก D1 (/api/employees) -> เปลี่ยนเป็นดึง Master จาก Google Sheet
+    // 1. Server session (minimal redacted state: role / employee / display)
     try {
-        if (MASTER_API_URL && MASTER_API_URL.indexOf("PASTE_") !== 0) {
-            const response = await fetch(`${MASTER_API_URL}?action=getTeamflowMaster`);
-            if (response.ok) {
-                const body = await response.json();
-                const rows = Array.isArray(body) ? body : (body && body.data);
-                if (Array.isArray(rows)) {
-                    employees = rows
-                        .map(r => ({ code: (r.code || "").trim(), name: (r.name || "").trim(), position: r.position || "" }))
-                        .filter(e => e.name);
-                }
+        const sessionResponse = await fetch("/api/session");
+        if (!sessionResponse.ok) {
+            renderUnauthenticated();
+            return;
+        }
+        session = await sessionResponse.json();
+    } catch (err) {
+        renderUnauthenticated();
+        return;
+    }
+
+    // 2. Load employees list from the server API (read-only)
+    try {
+        const response = await fetch("/api/employees");
+        if (response.ok) {
+            const rows = await response.json();
+            if (Array.isArray(rows)) {
+                employees = rows
+                    .map(r => ({ code: (r.code || "").trim(), name: (r.name || "").trim() }))
+                    .filter(e => e.name);
             }
         }
     } catch (err) {
-        console.warn("⚠️ ไม่สามารถดึง Master พนักงานจาก Google Sheet ได้:", err);
-    }
-
-    // Fallback: Seed initial employees if empty (e.g. offline/local fallback)
-    if (!employees || employees.length === 0) {
-        const DEFAULT_TEAM = [
-            { code: "EMP001", name: "สมัค" },
-            { code: "EMP002", name: "ต๊ะ" },
-            { code: "EMP003", name: "อ้อม" },
-            { code: "EMP004", name: "ปราง" },
-            { code: "EMP005", name: "จอย" },
-            { code: "EMP006", name: "บุ๋ม" },
-            { code: "EMP007", name: "ตาล" },
-            { code: "EMP008", name: "มิน" },
-            { code: "EMP009", name: "โต้ย" },
-            { code: "EMP010", name: "หมี" },
-            { code: "EMP011", name: "โค้ก" },
-            { code: "EMP012", name: "เบิ้ล" },
-            { code: "EMP013", name: "ลี่" },
-            { code: "EMP014", name: "แพร" }
-        ];
-        employees = [...DEFAULT_TEAM];
+        console.warn("⚠️ ไม่สามารถดึงรายชื่อพนักงานจาก API ได้:", err);
     }
 
     populateSelectOptions(); // Populate dropdowns dynamically from loaded employees!
 
-    // 2. Load tasks
+    // 3. Load tasks from the Cloudflare API (server-filtered by ownership)
     try {
         const response = await fetch("/api/tasks");
         if (response.ok) {
             tasks = await response.json();
-            saveTasksToLocalBackup();
             renderApp();
             return;
         }
+        // Non-OK API response: show empty state, do NOT fall back to localStorage.
+        tasks = [];
     } catch (err) {
-        console.warn("⚠️ ไม่สามารถโหลดข้อมูลจาก Cloudflare API ได้ (อาจจะกำลังรันโหมด Local/ยังไม่ผูกฐานข้อมูล) -> กำลังสลับไปใช้ระบบเก็บข้อมูลในเครื่อง");
-    }
-
-    // Fallback: LocalStorage
-    const savedTasks = localStorage.getItem("teamflow_tasks");
-    if (savedTasks) {
-        tasks = JSON.parse(savedTasks);
-    } else {
-        tasks = [...INITIAL_TASKS];
-        saveTasksToLocalBackup();
+        console.warn("⚠️ ไม่สามารถโหลดข้อมูลจาก Cloudflare API ได้:", err);
+        tasks = [];
     }
     renderApp();
 }
 
+function renderUnauthenticated() {
+    tasks = [];
+    session = { authenticated: false, role: "member", employee_code: null, display_name: null };
+    const supervisorView = document.getElementById("supervisor-view");
+    const memberView = document.getElementById("member-view");
+    if (supervisorView) supervisorView.classList.remove("active");
+    if (memberView) memberView.classList.remove("active");
+    console.warn("ยืนยันตัวตนไม่สำเร็จ (Not authenticated)");
+}
+
+function isSupervisorSession() {
+    return session && session.role === "supervisor";
+}
+
+function currentMemberName() {
+    return session.display_name || session.employee_code || "";
+}
+
+// employee_code is the canonical assignee value (H1): filtering and
+// self-assignment always use the code, never the display name.
+function currentMemberCode() {
+    return session.employee_code || "";
+}
+
+// retained only for legacy local/dev parity; production writes go to the API
 function saveTasksToLocalBackup() {
-    localStorage.setItem("teamflow_tasks", JSON.stringify(tasks));
+    // localStorage task persistence disabled in production (server is authoritative).
 }
 
 // ==========================================================================
@@ -236,24 +258,26 @@ function populateSelectOptions() {
     }
     
     employees.forEach(member => {
+        // employee_code is the canonical assignee value (H1): dropdown values
+        // carry the code; the label shows the human-readable name.
         const option = document.createElement("option");
-        option.value = `member_${member.name}`;
+        option.value = `member_${member.code}`;
         option.textContent = `พนักงาน: ${member.name} (${member.code})`;
         optgroup.appendChild(option);
 
         const filterOpt = document.createElement("option");
-        filterOpt.value = member.name;
+        filterOpt.value = member.code;
         filterOpt.textContent = `${member.name} (${member.code})`;
-        filterAssignee.appendChild(filterOpt);
+        if (filterAssignee) filterAssignee.appendChild(filterOpt);
 
         const modalOpt = document.createElement("option");
-        modalOpt.value = member.name;
+        modalOpt.value = member.code;
         modalOpt.textContent = `${member.name} (${member.code})`;
-        taskAssigneeInput.appendChild(modalOpt);
+        if (taskAssigneeInput) taskAssigneeInput.appendChild(modalOpt);
 
         if (calendarAssigneeFilter) {
             const calendarOpt = document.createElement("option");
-            calendarOpt.value = member.name;
+            calendarOpt.value = member.code;
             calendarOpt.textContent = `${member.name} (${member.code})`;
             calendarAssigneeFilter.appendChild(calendarOpt);
         }
@@ -261,12 +285,16 @@ function populateSelectOptions() {
 }
 
 function bindEvents() {
-    document.getElementById("role-select").addEventListener("change", (e) => {
-        currentRole = e.target.value;
-        currentTab = "board"; // Reset to board tab on role change
-        resetTabButtons();
-        renderApp();
-    });
+    const roleSelect = document.getElementById("role-select");
+    if (roleSelect) {
+        // Role authority is server-side; the select is display-only now.
+        roleSelect.value = isSupervisorSession() ? "supervisor" : "member";
+        roleSelect.disabled = true;
+        roleSelect.addEventListener("change", (e) => {
+            // Ignore client-side role switching; session role wins.
+            renderApp();
+        });
+    }
 
     document.getElementById("task-search").addEventListener("input", renderTasksTable);
     document.getElementById("filter-assignee").addEventListener("change", renderTasksTable);
@@ -280,7 +308,7 @@ function renderApp() {
     const supervisorView = document.getElementById("supervisor-view");
     const memberView = document.getElementById("member-view");
 
-    if (currentRole === "supervisor") {
+    if (isSupervisorSession()) {
         supervisorView.classList.add("active");
         memberView.classList.remove("active");
         
@@ -295,11 +323,11 @@ function renderApp() {
         supervisorView.classList.remove("active");
         memberView.classList.add("active");
 
-        const activeMember = currentRole.replace("member_", "");
+        const activeMember = currentMemberName();
         renderMemberHeader(activeMember);
-        
+
         if (currentTab === "board") {
-            renderKanbanBoard(activeMember);
+            renderKanbanBoard(currentMemberCode());
         } else {
             renderCalendar();
         }
@@ -335,7 +363,7 @@ function switchViewTab(tabName) {
     currentTab = tabName;
     
     // Update active tab button classes
-    const isSupervisor = currentRole === "supervisor";
+    const isSupervisor = isSupervisorSession();
     const prefix = isSupervisor ? "sup" : "mem";
     
     const boardBtn = document.getElementById(`tab-btn-${prefix}-board`);
@@ -378,7 +406,7 @@ function jumpToCurrentMonth() {
 }
 
 function renderCalendar() {
-    const isSupervisor = currentRole === "supervisor";
+    const isSupervisor = isSupervisorSession();
     const prefix = isSupervisor ? "sup" : "mem";
     
     // 1. Update Month Year Label
@@ -397,7 +425,7 @@ function renderCalendar() {
         const filterEl = document.getElementById("calendar-assignee-filter");
         activeAssignee = filterEl ? filterEl.value : "all";
     } else {
-        activeAssignee = currentRole.replace("member_", "");
+        activeAssignee = currentMemberCode();
     }
 
     const filteredCalendarTasks = tasks.filter(task => {
@@ -466,7 +494,7 @@ function renderCalendarGrid(prefix, tasksList) {
             const statusClass = `pill-${getStatusId(task.status)}`;
             pill.className = `calendar-task-pill ${statusClass}`;
             
-            const displayAssignee = currentRole === "supervisor" ? `[${task.assignee.substring(0, 1)}] ` : "";
+            const displayAssignee = isSupervisorSession() ? `[${(task.assignee || "").substring(0, 1)}] ` : "";
             pill.textContent = `${displayAssignee}${task.name}`;
             pill.title = `${task.name} (${task.assignee}) - กำหนดส่ง: ${formatDate(task.deadline)}`;
             
@@ -539,7 +567,7 @@ function renderCalendarTimeline(prefix, tasksList) {
         marker.innerHTML = `
             <div class="timeline-dot"></div>
             <span class="timeline-date-text${isToday ? ' is-today' : ''}">
-                ${isToday ? 'วันนี้ (Today) - ' : ''}${formatDate(dateStr)}
+                ${isToday ? 'วันนี้ (Today) - ' : ''}${escapeHtml(formatDate(dateStr))}
             </span>
         `;
         timelineGroup.appendChild(marker);
@@ -558,20 +586,20 @@ function renderCalendarTimeline(prefix, tasksList) {
                 ? `<span class="overdue-danger" style="font-size:0.7rem;margin-left:0.5rem;"><i data-lucide="alert-circle" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> เกินเวลา</span>` 
                 : "";
 
-            const budgetLabel = task.budget > 0 
-                ? `<span class="tag tag-budget" style="font-size:0.65rem;margin-right:0.25rem;">฿${Number(task.budget).toLocaleString('th-TH')}</span>` 
+            const budgetLabel = task.budget > 0
+                ? `<span class="tag tag-budget" style="font-size:0.65rem;margin-right:0.25rem;">฿${Number(task.budget).toLocaleString('th-TH')}</span>`
                 : "";
 
             card.innerHTML = `
                 <div class="timeline-card-header">
-                    <h4 class="timeline-card-title">${task.name}</h4>
-                    <span class="badge badge-${getStatusId(task.status)}">${task.status}</span>
+                    <h4 class="timeline-card-title">${escapeHtml(task.name)}</h4>
+                    <span class="badge badge-${escapeHtml(getStatusId(task.status))}">${escapeHtml(task.status)}</span>
                 </div>
-                <p class="timeline-card-desc">${task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p>
+                <p class="timeline-card-desc">${task.description ? escapeHtml(task.description) : "ไม่มีรายละเอียดเพิ่มเติม"}</p>
                 <div class="timeline-card-footer">
                     <div class="timeline-card-assignee">
-                        <div class="avatar-mini" style="width:18px;height:18px;font-size:0.6rem;">${task.assignee.substring(0, 1)}</div>
-                        <span>${task.assignee}</span>
+                        <div class="avatar-mini" style="width:18px;height:18px;font-size:0.6rem;">${escapeHtml((task.assignee || "").substring(0, 1))}</div>
+                        <span>${escapeHtml(task.assignee)}</span>
                     </div>
                     <div>
                         ${budgetLabel}
@@ -676,7 +704,7 @@ function renderWorkloadList() {
         item.className = "workload-item";
         item.innerHTML = `
             <div class="workload-label-flex">
-                <span class="workload-name">${member.name} <span style="font-size:0.75rem; color:var(--text-muted);">(${member.code})</span></span>
+                <span class="workload-name">${escapeHtml(member.name)} <span style="font-size:0.75rem; color:var(--text-muted);">(${escapeHtml(member.code)})</span></span>
                 <span class="workload-count">${count} งาน</span>
             </div>
             <div class="workload-progress-bar-container">
@@ -730,28 +758,28 @@ function renderTasksTable() {
 
             tr.innerHTML = `
                 <td>
-                    <div class="task-name-cell">${task.name}</div>
-                    <span class="task-desc-subtext">${task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</span>
+                    <div class="task-name-cell">${escapeHtml(task.name)}</div>
+                    <span class="task-desc-subtext">${task.description ? escapeHtml(task.description) : "ไม่มีรายละเอียดเพิ่มเติม"}</span>
                 </td>
                 <td>
                     <div class="assignee-cell-flex">
-                        <div class="avatar-mini">${task.assignee.substring(0, 1)}</div>
-                        <span>${task.assignee}</span>
+                        <div class="avatar-mini">${escapeHtml((task.assignee || "").substring(0, 1))}</div>
+                        <span>${escapeHtml(task.assignee)}</span>
                     </div>
                 </td>
                 <td>
-                    <span class="${isTaskOverdue(task) ? 'overdue-danger' : ''}">${formatDate(task.deadline)}</span>
+                    <span class="${isTaskOverdue(task) ? 'overdue-danger' : ''}">${escapeHtml(formatDate(task.deadline))}</span>
                     ${overdueSpan}
                 </td>
                 <td class="text-semibold">${formatCurrency(task.budget)}</td>
                 <td>
-                    <span class="badge ${statusClass}">${statusLabelMap[normStatus] || normStatus}</span>
+                    <span class="badge ${escapeHtml(statusClass)}">${escapeHtml(statusLabelMap[normStatus] || normStatus)}</span>
                 </td>
                 <td class="actions-cell" onclick="event.stopPropagation()">
-                    <button class="btn-edit-icon" onclick="openEditTaskModal('${task.id}')" title="แก้ไขงาน">
+                    <button class="btn-edit-icon" onclick="openEditTaskModal('${escapeJsLiteral(task.id)}')" title="แก้ไขงาน">
                         <i data-lucide="edit-3"></i>
                     </button>
-                    <button class="btn-danger-icon" onclick="deleteTask('${task.id}')" title="ลบงาน">
+                    <button class="btn-danger-icon" onclick="deleteTask('${escapeJsLiteral(task.id)}')" title="ลบงาน">
                         <i data-lucide="trash-2"></i>
                     </button>
                 </td>
@@ -822,25 +850,25 @@ function renderKanbanBoard(memberName) {
                 : "";
 
             card.innerHTML = `
-                <div onclick="openDetailModal('${task.id}')">
+                <div onclick="openDetailModal('${escapeJsLiteral(task.id)}')">
                     <div class="card-title-area">
-                        <h4>${task.name}</h4>
+                        <h4>${escapeHtml(task.name)}</h4>
                     </div>
-                    <p class="card-desc">${task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p>
+                    <p class="card-desc">${task.description ? escapeHtml(task.description) : "ไม่มีรายละเอียดเพิ่มเติม"}</p>
                     <div class="card-tags">
                         ${budgetTag}
-                        <span class="tag tag-date">เริ่ม: ${formatDate(task.createdDate)}</span>
+                        <span class="tag tag-date">เริ่ม: ${escapeHtml(formatDate(task.createdDate))}</span>
                     </div>
                     <div class="card-footer">
                         <div class="card-deadline-flex ${isTaskOverdue(task) ? 'overdue-danger' : 'color-dark-grey'}">
                             <i data-lucide="calendar"></i>
-                            <span>ส่ง: ${formatDate(task.deadline)}</span>
+                            <span>ส่ง: ${escapeHtml(formatDate(task.deadline))}</span>
                         </div>
                         ${overdueBadge}
                     </div>
                 </div>
                 <div style="position: absolute; right: 8px; bottom: 8px; z-index: 10;" onclick="event.stopPropagation()">
-                    <button class="action-dot" onclick="openEditTaskModal('${task.id}')" title="แก้ไขงาน">
+                    <button class="action-dot" onclick="openEditTaskModal('${escapeJsLiteral(task.id)}')" title="แก้ไขงาน">
                         <i data-lucide="edit-2" style="width:14px;height:14px;"></i>
                     </button>
                 </div>
@@ -883,12 +911,11 @@ function dropTask(e) {
         if (taskIndex !== -1 && normalizeStatus(tasks[taskIndex].status) !== targetStatus) {
             tasks[taskIndex].status = targetStatus;
             saveTasksToLocalBackup();
-            
+
             // Sync to Cloud DB
             apiUpdateTask(tasks[taskIndex]);
-            
-            const activeMember = currentRole.replace("member_", "");
-            renderKanbanBoard(activeMember);
+
+            renderKanbanBoard(currentMemberCode());
         }
     }
     draggedTaskId = null;
@@ -908,7 +935,15 @@ function openAddTaskModal() {
 
     const assigneeSelect = document.getElementById("task-assignee-input");
     assigneeSelect.disabled = false;
-    assigneeSelect.value = TEAM_MEMBERS[0];
+    if (isSupervisorSession()) {
+        if (assigneeSelect.options.length > 0) {
+            assigneeSelect.selectedIndex = 0;
+        }
+    } else {
+        // Members can only create tasks for themselves (canonical employee_code).
+        assigneeSelect.value = currentMemberCode();
+        assigneeSelect.disabled = true;
+    }
     document.getElementById("task-status-input").value = "Todo";
 
     document.getElementById("task-modal").classList.add("active");
@@ -920,9 +955,10 @@ function openAddTaskModal() {
 
 function openAddTaskModalForCurrentMember() {
     openAddTaskModal();
-    const activeMember = currentRole.replace("member_", "");
     const assigneeSelect = document.getElementById("task-assignee-input");
-    assigneeSelect.value = activeMember;
+    // employee_code is the canonical assignee value (H1). The legacy
+    // currentRole lookup was removed with client-side role switching.
+    assigneeSelect.value = currentMemberCode();
     assigneeSelect.disabled = true;
 }
 
@@ -937,7 +973,7 @@ function openEditTaskModal(taskId) {
     
     const assigneeSelect = document.getElementById("task-assignee-input");
     assigneeSelect.value = task.assignee;
-    assigneeSelect.disabled = currentRole !== "supervisor";
+    assigneeSelect.disabled = !isSupervisorSession();
 
     document.getElementById("task-budget-input").value = task.budget || 0;
     document.getElementById("task-created-input").value = task.createdDate;
@@ -1180,10 +1216,10 @@ function renderEmployeeTable() {
     employees.forEach(emp => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-            <td style="font-weight:600; color:var(--primary-medium);">${emp.code}</td>
-            <td>${emp.name}</td>
+            <td style="font-weight:600; color:var(--primary-medium);">${escapeHtml(emp.code)}</td>
+            <td>${escapeHtml(emp.name)}</td>
             <td class="actions-cell">
-                <button class="btn-danger-icon" onclick="deleteEmployee('${emp.code}', '${emp.name}')" title="ลบพนักงาน">
+                <button class="btn-danger-icon" onclick="deleteEmployee('${escapeJsLiteral(emp.code)}', '${escapeJsLiteral(emp.name)}')" title="ลบพนักงาน">
                     <i data-lucide="trash-2" style="width:16px;height:16px;"></i>
                 </button>
             </td>

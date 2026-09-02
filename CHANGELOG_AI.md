@@ -1,5 +1,44 @@
 # CHANGELOG_AI
 
+## 2026-09-02
+
+### Tool ที่ใช้
+Codex + Browser ภายใน Codex App + local terminal
+
+### Session Goal
+ดำเนิน APP07 Source-of-Truth Apply Gate โดยนำเฉพาะ validated feature diff จาก Hermes sanitized workspace เข้า `TodoList_WebApp`, รัน tests/syntax และ Codex Final QA โดยไม่ Commit, Push, Deploy หรือแก้ Production
+
+### สิ่งที่ทำเสร็จแล้ว
+- อ่าน `PROJECT_CONTEXT.md`, `CHANGELOG_AI.md`, ตรวจ `git status`, `git log -5` และ `git pull --ff-only`; repo สะอาดและ GitHub ตอบ `Already up to date`
+- ดาวน์โหลด exact APP07 contract ผ่าน Browser ใน Codex App; 4 re-sealed files ตรง hash ที่ผ่าน DeepSeek PASS:
+  - `app.js` = `cd590f9c20a02601a077c680c3bff11315b7348873d5b7cdd4046825c448fd28`
+  - `functions/api/tasks.js` = `0380ec12908e485f59c62dd5022295ffc575b2c3def66fe13262aef5507c50b9`
+  - `tests/functions.test.mjs` = `13de49e63a14e07f35bbd9da84ef2b8a4ba02b8de1628ea769c1b2fb7a1aed88`
+  - `tests/auth-ownership.test.mjs` = `b60db1ab518091fe832577c209526d56d5bb29eafa5d924bfe1a7c0edae6e6a5`
+- อ่าน `SANITIZATION_MANIFEST.json` และแยก endpoint/person identifiers/mock tasks ออกจาก feature diff; รักษาค่าจริงเดิมของ Source-of-Truth และแก้ sanitization corruption `เปDemo User 13ยน` กลับเป็นข้อความไทยเดิม
+- เพิ่ม Cloudflare Access JWT verification (`RS256`), active `app_users` mapping, default-deny middleware, minimal session endpoint, server-side task ownership, supervisor-only employee writes, optimistic locking และ additive D1 migration
+- ปิด production localStorage task fallback และ client-side role authority; เพิ่ม DOM-safe escaping สำหรับ user-controlled HTML sinks
+- รักษา `style.css` แบบ byte-identical และไม่แตะ `*-Alex_PREDATOR.js`
+- แก้ test File URL helper ให้รองรับ Windows (`new URL(..., import.meta.url)`) หลัง Final QA พบ path `D:\\D:\\...`
+
+### ไฟล์ที่เพิ่ม/แก้ไข
+- Modified: `index.html`, `app.js`, `functions/api/tasks.js`, `functions/api/employees.js`, `schema.sql`, `wrangler.toml`, `tests/functions.test.mjs`, `PROJECT_CONTEXT.md`, `CHANGELOG_AI.md`
+- Added: `package.json`, `functions/_middleware.js`, `functions/_lib/authorization.js`, `functions/api/session.js`, `migrations/0001_auth_ownership.sql`, `tests/auth-ownership.test.mjs`
+- Unchanged/excluded: `style.css`, `*-Alex_PREDATOR.js`, `.git`, credentials, Cloudflare/D1/Production
+
+### Tests หรือ Checks ที่รัน
+- `node --check` ผ่านทุก production/new JS/MJS
+- `npm test` ผ่าน `48/48`, fail `0`
+- `git diff --check` ผ่าน
+- Secret/private-key scan ผ่าน
+- Browser ภายใน Codex App local preview โหลด HTML/JS และแสดง fail-closed shell ตามคาดเมื่อไม่มี Access session
+
+### Notes / Risks
+- Source-of-Truth Apply และ Codex Final QA ผ่านแล้ว; Owner อนุมัติ APP07 Local Commit Gate เมื่อ 2026-09-02 และ entry นี้รวมอยู่ใน local commit ของ change set
+- ยังไม่ได้ตั้ง `ACCESS_TEAM_DOMAIN`, `ACCESS_AUDIENCE`, D1 `database_id`, Access policy, migration หรือ `app_users` จริง; placeholders ทำให้ระบบ fail closed
+- Local Commit ได้รับอนุมัติเฉพาะ change set นี้; ยังไม่อนุมัติ Push, Deploy, D1/Cloudflare write, Production Verification หรือ Release
+- Gate ถัดไป: Remote Push (ยัง `NO`); D1/Access/Deploy และ Production Verification ต้องอนุมัติแยก
+
 ## 2026-07-08
 
 ### Tool ที่ใช้
