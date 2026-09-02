@@ -1,5 +1,33 @@
 # CHANGELOG_AI
 
+## 2026-09-02 — Zero Trust Free activation and 50-user guard
+
+### Tool ที่ใช้
+Codex + Browser ภายใน Codex App + local terminal
+
+### Session Goal
+Activate Cloudflare Zero Trust Free ตาม Owner Gate และเพิ่มกฎ APP07 ให้ใช้งานได้สูงสุด 50 active users; การเพิ่มเพดานต้องได้รับ Owner approval ก่อน
+
+### สิ่งที่ทำเสร็จแล้ว
+- Activate `Zero Trust Free` สำเร็จผ่าน Cloudflare Checkout; ระบบยืนยัน Purchase complete และ `$0/month` สำหรับ allowance สูงสุด 50 users
+- เพิ่ม server-side hard limit `MAX_ACTIVE_APP_USERS = 50`
+- จัดลำดับสิทธิ์แบบ deterministic ด้วย `created_at`, `issuer`, `subject`; active identity ลำดับเกิน 50 ถูกปฏิเสธด้วย `user_limit_exceeded`
+- ป้องกัน supervisor มอบหมายงานให้ active identity ที่อยู่นอก 50 allowed seats
+- เพิ่ม regression tests สำหรับผู้ใช้ลำดับ 50/51 และ assignee เกิน limit
+
+### ไฟล์ที่เพิ่ม/แก้ไข
+- Modified: `functions/_lib/authorization.js`, `functions/api/tasks.js`, `tests/auth-ownership.test.mjs`, `tests/functions.test.mjs`, `PROJECT_CONTEXT.md`, `CHANGELOG_AI.md`
+
+### Tests หรือ Checks ที่รัน
+- `node --check` ผ่านสำหรับ authorization, tasks API และ test files ที่แก้
+- `npm test` ผ่าน `50/50`, fail `0`
+- `git diff --check` ผ่าน
+
+### Notes / Risks
+- กฎใน APP07 จำกัดผู้ใช้ที่ผ่าน middleware แต่ Cloudflare Access policy ต้องจำกัด allowlist/group ไม่เกิน 50 คนด้วยใน Access Configuration Gate เพื่อคุม Cloudflare seats ที่ชั้นหน้า
+- ยังไม่ได้รัน D1 migration, สร้าง Access application/policy, Deploy ซ้ำ หรือ Production Verification
+- การเพิ่ม limit เกิน 50 ต้องผ่าน Owner approval และ Cloudflare plan/billing review ก่อนแก้ constant หรือ Access policy
+
 ## 2026-09-02
 
 ### Tool ที่ใช้

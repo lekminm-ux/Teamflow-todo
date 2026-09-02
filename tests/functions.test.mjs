@@ -186,6 +186,18 @@ const supervisorUser = {
                 return statement;
             },
             async all() {
+                if (/FROM app_users/i.test(sql)) {
+                    return {
+                        results: [{
+                            ...ownerRow,
+                            employee_code: "EMP002",
+                            role: "member",
+                            display_name: "Demo User 02",
+                            is_active: 1,
+                            created_at: "2026-09-02T00:00:00Z"
+                        }]
+                    };
+                }
                 return { results: [] };
             },
             async first() {

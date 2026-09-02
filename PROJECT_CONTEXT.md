@@ -149,6 +149,9 @@ API endpoints:
 - Ownership fields cannot be changed from request payloads
 - `row_version` mismatch returns `409`
 - API currently uses prepared statements for DB writes/reads
+- APP07 allows at most 50 active application users, matching the Cloudflare Zero Trust Free allowance.
+- The allowed seats are the first 50 active `app_users` ordered by `created_at`, then `issuer` and `subject`; later active identities fail closed with `user_limit_exceeded` and cannot be selected as task assignees.
+- Increasing the 50-user ceiling requires explicit Owner approval plus Cloudflare plan/billing review before changing code or Access policy.
 
 ## Deployment / Run / Test Instructions
 Repo มี `package.json` สำหรับ Node built-in tests และไม่มี external dependency.
@@ -242,7 +245,14 @@ Antigravity:
 - `*-Alex_PREDATOR.js` ทุกไฟล์ยังเป็น reference-only/excluded และไม่ถูกแก้
 - Codex Final QA: syntax ผ่าน, security review ผ่าน, secret scan ผ่าน, local fail-closed preview ผ่าน และ automated tests `48/48`
 - Owner อนุมัติ APP07 Local Commit Gate เมื่อ 2026-09-02 และ change set นี้ถูกจัดเก็บใน local commit ภายใต้ Gate ดังกล่าว
-- Remote Push, D1 migration, Cloudflare Access, Deploy, Production Verification และ Release ยังไม่ได้รับอนุมัติและเป็น Gate แยก
+- Remote Push เสร็จแล้วที่ commit `2cceb0d`; Cloudflare Pages Automatic Deployment ที่ตั้งไว้เดิม deploy commit นี้สำเร็จเองหลัง Push
+- Zero Trust Free subscription ถูก Activate แล้ว แต่ D1 migration, Access application/policy, Identity Provider configuration, app-user provisioning, Production Verification และ Release ยังเป็น Gate แยก
+
+## APP07 Cloudflare Zero Trust Status — 2026-09-02
+- Owner อนุมัติและ Activate แผน `Zero Trust Free` สำเร็จแล้ว; ค่าใช้จ่ายฐานปัจจุบัน `$0/month` และรวมได้สูงสุด 50 users ตามหน้า Cloudflare Checkout
+- Team name ที่ Cloudflare สร้างให้ปัจจุบันคือ `winter-credit-4708`
+- การสร้าง Access application/policy, Identity Provider configuration, D1 migration, app-user provisioning และ Production Verification ยังเป็น Gate แยก
+- Code-level active-user ceiling ถูกกำหนดไว้ที่ 50; การเพิ่มเพดานต้องขอ Owner approval และทบทวนแผน/ค่าใช้จ่าย Cloudflare ก่อนทุกครั้ง
 
 ## Known Risks / Notes
 - มีไฟล์ untracked หลายไฟล์ ณ 2026-07-08: `Codex_Multi_Device_Blueprint.md`, `app-Alex_PREDATOR.js`, `functions/api/employees-Alex_PREDATOR.js`, `functions/api/tasks-Alex_PREDATOR.js`, `tests/`

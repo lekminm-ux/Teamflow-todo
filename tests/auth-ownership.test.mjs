@@ -27,7 +27,13 @@ const MODULES = {
     middleware: await import(moduleUrl("../functions/_middleware.js").href)
 };
 
-const { verifyAccessToken, AuthError, resolveActiveUser } = MODULES.authorization;
+const {
+    verifyAccessToken,
+    AuthError,
+    MAX_ACTIVE_APP_USERS,
+    resolveActiveUser,
+    resolveAllowedAssigneeOwner
+} = MODULES.authorization;
 
 // ==========================================================================
 // REAL RS256 KEY FIXTURE (C1 fix)
@@ -307,6 +313,53 @@ test("active user resolves with minimal fields", async () => {
     assert.equal(user.employee_code, "EMP001");
     assert.equal(user.display_name, "Demo User 01");
     assert.equal(Object.prototype.hasOwnProperty.call(user, "email"), false);
+});
+
+test("APP07 allows the first 50 active users and rejects user 51 pending owner approval", async () => {
+    const users = Array.from({ length: MAX_ACTIVE_APP_USERS + 1 }, (_, index) => {
+        const position = index + 1;
+        return {
+            issuer: "https://test-team.example.com",
+            subject: `sub-${String(position).padStart(2, "0")}`,
+            role: "member",
+            employee_code: `EMP${String(position).padStart(3, "0")}`,
+            display_name: `User ${position}`,
+            is_active: 1,
+            created_at: `2026-09-02T00:${String(index).padStart(2, "0")}:00Z`
+        };
+    });
+    const db = dbWithUsers(users);
+
+    const fiftieth = await resolveActiveUser(
+        db,
+        "https://test-team.example.com",
+        `sub-${String(MAX_ACTIVE_APP_USERS).padStart(2, "0")}`
+    );
+    assert.equal(fiftieth.employee_code, "EMP050");
+
+    await assert.rejects(
+        () => resolveActiveUser(db, "https://test-team.example.com", "sub-51"),
+        (err) => err instanceof AuthError && err.code === "user_limit_exceeded" && err.status === 403
+    );
+});
+
+test("over-limit active user cannot be selected as a task assignee", async () => {
+    const users = Array.from({ length: MAX_ACTIVE_APP_USERS + 1 }, (_, index) => ({
+        issuer: "https://test-team.example.com",
+        subject: `sub-${index + 1}`,
+        role: "member",
+        employee_code: `EMP${String(index + 1).padStart(3, "0")}`,
+        display_name: `User ${index + 1}`,
+        is_active: 1,
+        created_at: `2026-09-02T00:${String(index).padStart(2, "0")}:00Z`
+    }));
+    const db = dbWithUsers(users);
+
+    assert.deepEqual(await resolveAllowedAssigneeOwner(db, "EMP050"), {
+        issuer: "https://test-team.example.com",
+        subject: "sub-50"
+    });
+    assert.equal(await resolveAllowedAssigneeOwner(db, "EMP051"), null);
 });
 
 // ==========================================================================

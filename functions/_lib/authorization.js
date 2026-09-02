@@ -17,6 +17,11 @@
 
 const ENCODER = new TextEncoder();
 
+// APP07 is intentionally capped at the Cloudflare Zero Trust Free allowance.
+// Raising this value requires explicit owner approval and a Cloudflare plan /
+// billing review before the code is changed.
+export const MAX_ACTIVE_APP_USERS = 50;
+
 export class AuthError extends Error {
     constructor(code, message, status = 401) {
         super(message);
@@ -166,19 +171,45 @@ export async function verifyAccessToken(token, env, fetchImpl) {
 
 /* ---------- identity resolution (stable issuer + subject -> app_users) ---------- */
 
+async function listAllowedActiveUsers(db) {
+    const { results } = await db
+        .prepare(
+            "SELECT issuer, subject, role, employee_code, display_name " +
+            "FROM app_users WHERE is_active = 1 " +
+            "ORDER BY created_at ASC, issuer ASC, subject ASC LIMIT ?"
+        )
+        .bind(MAX_ACTIVE_APP_USERS)
+        .all();
+
+    // Keep the limit in application code as a second guard in case a test
+    // double or future database adapter does not enforce SQL LIMIT correctly.
+    return Array.isArray(results) ? results.slice(0, MAX_ACTIVE_APP_USERS) : [];
+}
+
 /**
  * Maps a verified issuer+subject to an ACTIVE app_users row.
  * Default deny: returns null for unregistered or inactive identities.
  * Email is intentionally not selected or used.
  */
 export async function resolveActiveUser(db, issuer, subject) {
-    const row = await db
-        .prepare(
-            "SELECT role, employee_code, display_name FROM app_users WHERE issuer = ? AND subject = ? AND is_active = 1"
-        )
-        .bind(issuer, subject)
-        .first();
+    const allowedUsers = await listAllowedActiveUsers(db);
+    const row = allowedUsers.find((candidate) => (
+        candidate.issuer === issuer && candidate.subject === subject
+    ));
     if (!row) {
+        const activeButOverLimit = await db
+            .prepare(
+                "SELECT 1 AS active FROM app_users WHERE issuer = ? AND subject = ? AND is_active = 1"
+            )
+            .bind(issuer, subject)
+            .first();
+        if (activeButOverLimit) {
+            throw new AuthError(
+                "user_limit_exceeded",
+                "APP07 supports at most 50 active users; owner approval is required before increasing the limit",
+                403
+            );
+        }
         return null;
     }
     return {
@@ -188,6 +219,20 @@ export async function resolveActiveUser(db, issuer, subject) {
         issuer,
         subject
     };
+}
+
+/**
+ * Resolves a task assignee only when the employee belongs to one of the same
+ * 50 allowed active application users. This prevents supervisors from
+ * assigning work to an over-limit identity that cannot enter the app.
+ */
+export async function resolveAllowedAssigneeOwner(db, employeeCode) {
+    if (typeof employeeCode !== "string" || employeeCode.trim().length === 0) {
+        return null;
+    }
+    const allowedUsers = await listAllowedActiveUsers(db);
+    const row = allowedUsers.find((candidate) => candidate.employee_code === employeeCode.trim());
+    return row ? { issuer: row.issuer, subject: row.subject } : null;
 }
 
 /* ---------- request authentication ---------- */

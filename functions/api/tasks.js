@@ -10,7 +10,12 @@
    - All statements are prepared D1 statements.
    ========================================================================== */
 
-import { canModifyTask, isSupervisor, jsonError } from "../_lib/authorization.js";
+import {
+    canModifyTask,
+    isSupervisor,
+    jsonError,
+    resolveAllowedAssigneeOwner
+} from "../_lib/authorization.js";
 
 const NUMERIC_COLUMNS = ["budget"];
 const OWNERSHIP_COLUMNS = ["owner_user_issuer", "owner_user_subject"];
@@ -59,14 +64,7 @@ function requireRequiredFields(task) {
  * unknown, or inactive (default deny).
  */
 async function resolveAssigneeOwner(db, employeeCode) {
-    if (typeof employeeCode !== "string" || employeeCode.trim().length === 0) {
-        return null;
-    }
-    const row = await db
-        .prepare("SELECT issuer, subject FROM app_users WHERE employee_code = ? AND is_active = 1")
-        .bind(employeeCode.trim())
-        .first();
-    return row ? { issuer: row.issuer, subject: row.subject } : null;
+    return resolveAllowedAssigneeOwner(db, employeeCode);
 }
 
 /**
